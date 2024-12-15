@@ -40,19 +40,19 @@ enum {
 	EBLANGNUM__100_900 = '&',
 };
 
-struct eblang__arg {
+struct eblang_parse__arg {
 	int type;
 	void* data;
 };
 
-struct eblang__command {
+struct eblang_parse__command {
 	int type;
 
-	struct eblang__arg* args;
+	struct eblang_parse__arg* args;
 	size_t args_count;
 };
 
-bool eblang__parse(struct eblang__command** out, size_t* out_size, const char* str);
-void eblang__free_parsed(struct eblang__command* commands, size_t size);
+bool eblang_parse__parse(struct eblang_parse__command** out, size_t* out_size, const char* str);
+void eblang_parse__free(struct eblang_parse__command* commands, size_t size);
 
 #endif

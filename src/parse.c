@@ -8,11 +8,11 @@
 #include "parse.h"
 #include "eblang.h"
 
-static int parse_command(struct eblang__command* command, const char* str);
+static int parse_command(struct eblang_parse__command* command, const char* str);
 
-bool eblang__parse(struct eblang__command** out, size_t* out_size, const char* str)
+bool eblang_parse__parse(struct eblang_parse__command** out, size_t* out_size, const char* str)
 {
-	struct eblang__command cmd;
+	struct eblang_parse__command cmd;
 	int shift, i;
 	const char* new_str = str;
 
@@ -25,11 +25,11 @@ bool eblang__parse(struct eblang__command** out, size_t* out_size, const char* s
 			return false;
 
 		(*out_size)++;
-		struct eblang__command* new_out =
-			eblang__memmanager->allocator(sizeof(struct eblang__command) * (*out_size));
+		struct eblang_parse__command* new_out =
+			eblang__memmanager->allocator(sizeof(struct eblang_parse__command) * (*out_size));
 
 		if (*out != NULL) {
-			memcpy(new_out, (*out), sizeof(struct eblang__command) * ((*out_size) - 1));
+			memcpy(new_out, (*out), sizeof(struct eblang_parse__command) * ((*out_size) - 1));
 			eblang__memmanager->deallocator(*out);
 		}
 
@@ -41,13 +41,13 @@ bool eblang__parse(struct eblang__command** out, size_t* out_size, const char* s
 	return true;
 }
 
-void eblang__free_parsed(struct eblang__command* commands, size_t size)
+void eblang__free_parsed(struct eblang_parse__command* commands, size_t size)
 {
 	for (int i = 0; i < size; i++) {
-		struct eblang__command* cmd = &commands[i];
+		struct eblang_parse__command* cmd = &commands[i];
 		
 		for (int j = 0; j < cmd->args_count; j++) {
-			struct eblang__arg* arg = &cmd->args[j];
+			struct eblang_parse__arg* arg = &cmd->args[j];
 
 			if (arg->data != NULL)
 				eblang__memmanager->deallocator(arg->data);
@@ -60,9 +60,9 @@ void eblang__free_parsed(struct eblang__command* commands, size_t size)
 }
 
 static bool is_command(char c);
-static int parse_arg(struct eblang__arg* arg, const char* str);
+static int parse_arg(struct eblang_parse__arg* arg, const char* str);
 
-static int parse_command(struct eblang__command* command, const char* str)
+static int parse_command(struct eblang_parse__command* command, const char* str)
 {
 	if (*str == '\0')
 		return 0;
@@ -78,7 +78,7 @@ static int parse_command(struct eblang__command* command, const char* str)
 	c++;
 
 	int shift, i;
-	struct eblang__arg arg;
+	struct eblang_parse__arg arg;
 
 	for (shift = parse_arg(&arg, c), i = 0; shift > 0 && *c != '\0'; i++,
 			c += shift, shift = parse_arg(&arg, c)) {
@@ -86,12 +86,12 @@ static int parse_command(struct eblang__command* command, const char* str)
 			return -1;
 
 		command->args_count++;
-		struct eblang__arg* new_args =
-			eblang__memmanager->allocator(sizeof(struct eblang__arg) * command->args_count);
+		struct eblang_parse__arg* new_args =
+			eblang__memmanager->allocator(sizeof(struct eblang_parse__arg) * command->args_count);
 
 		if (command->args != NULL) {
 			memcpy(new_args, command->args,
-					sizeof(struct eblang__arg) * (command->args_count - 1));
+					sizeof(struct eblang_parse__arg) * (command->args_count - 1));
 			eblang__memmanager->deallocator(command->args);
 		}
 
@@ -121,7 +121,7 @@ static bool is_command(char c)
 static int parse_arg_num(void** data, const char* str);
 static int parse_arg_str(void** data, const char* str);
 
-static int parse_arg(struct eblang__arg* arg, const char* str)
+static int parse_arg(struct eblang_parse__arg* arg, const char* str)
 {
 	switch (*str) {
 	case '\0':
