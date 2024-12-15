@@ -16,6 +16,7 @@ enum {
 	EBLANGKW__JMPIF         = '[',
 	EBLANGKW__GET_ADDR      = '~',
 	EBLANGKW__DEALLOC       = '#',
+	EBLANGKW__LABEL         = '*',
 };
 
 enum {

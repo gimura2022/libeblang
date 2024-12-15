@@ -115,7 +115,8 @@ static bool is_command(char c)
 		c == EBLANGKW__PRINT ||
 		c == EBLANGKW__SET ||
 		c == EBLANGKW__SUB ||
-		c == EBLANGKW__DEALLOC;
+		c == EBLANGKW__DEALLOC ||
+		c == EBLANGKW__LABEL;
 }
 
 static int parse_arg_num(void** data, const char* str);
