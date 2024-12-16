@@ -107,16 +107,18 @@ static bool is_command(char c)
 {
 	return c == EBLANGKW__ADD ||
 		c == EBLANGKW__ALLOC ||
-		c == EBLANGKW__GET ||
 		c == EBLANGKW__GET_ADDR ||
 		c == EBLANGKW__VAR_FROM_ADDR ||
 		c == EBLANGKW__JMP ||
 		c == EBLANGKW__JMPIF ||
-		c == EBLANGKW__PRINT ||
 		c == EBLANGKW__SET ||
 		c == EBLANGKW__SUB ||
 		c == EBLANGKW__DEALLOC ||
-		c == EBLANGKW__LABEL;
+		c == EBLANGKW__LABEL ||
+		c == EBLANGKW__CALL ||
+		c == EBLANGKW__EXIT ||
+		c == EBLANGKW__MUL ||
+		c == EBLANGKW__DIV;
 }
 
 static int parse_arg_num(void** data, const char* str);
@@ -134,6 +136,8 @@ static int parse_arg(struct eblang_parse__arg* arg, const char* str)
 	case EBLANGARG__RIGHT:
 	case EBLANGARG__OR:
 	case EBLANGARG__XOR:
+	case EBLANGARG__START:
+	case EBLANGARG__EXPORT:
 		arg->type = *str;
 		arg->data = NULL;
 

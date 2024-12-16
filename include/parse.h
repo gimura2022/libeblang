@@ -7,31 +7,42 @@
 enum {
 	EBLANGKW__ALLOC         = '}',
 	EBLANGKW__VAR_FROM_ADDR = '{',
-	EBLANGKW__SET           = '$',
-	EBLANGKW__ADD           = '?',
-	EBLANGKW__SUB           = '%',
-	EBLANGKW__PRINT         = '^',
-	EBLANGKW__GET           = '!',
-	EBLANGKW__JMP           = ']',
-	EBLANGKW__JMPIF         = '[',
-	EBLANGKW__GET_ADDR      = '~',
 	EBLANGKW__DEALLOC       = '#',
-	EBLANGKW__LABEL         = '*',
+
+	EBLANGKW__SET = '$',
+	EBLANGKW__ADD = '?',
+	EBLANGKW__SUB = '%',
+	EBLANGKW__MUL = 'x',
+	EBLANGKW__DIV = '.',
+
+	EBLANGKW__JMP   = ']',
+	EBLANGKW__JMPIF = '[',
+
+	EBLANGKW__GET_ADDR = '~',
+	EBLANGKW__CALL     = '/',
+
+	EBLANGKW__LABEL = '*',
+	EBLANGKW__EXIT  = '=',
 };
 
 enum {
 	EBLANGARG__STR          = '"',
 	EBLANGARG__GENERAL_CHAR = ':',
-	EBLANGARG__GENERAL_NUM  = ',',
-	EBLANGARG__VARIABLE     = 'f',
-	EBLANGARG__OFFSET       = 'o',
-	EBLANGARG__INSTRUCTION  = 'p',
-	EBLANGARG__EQUALS       = 'e',
-	EBLANGARG__OR           = 'r',
-	EBLANGARG__XOR          = 'x',
-	EBLANGARG__AND          = 'a',
-	EBLANGARG__RIGHT        = 't',
-	EBLANGARG__LEFT         = 'l',
+
+	EBLANGARG__GENERAL_NUM = ',',
+	EBLANGARG__VARIABLE    = 'f',
+	EBLANGARG__OFFSET      = 'o',
+	EBLANGARG__INSTRUCTION = 'p',
+
+	EBLANGARG__EQUALS = 'e',
+	EBLANGARG__OR     = 'r',
+	EBLANGARG__XOR    = 'x',
+	EBLANGARG__AND    = 'a',
+	EBLANGARG__RIGHT  = 't',
+	EBLANGARG__LEFT   = 'l',
+
+	EBLANGARG__START  = 'S',
+	EBLANGARG__EXPORT = 'E',
 };
 
 enum {
