@@ -1,215 +1,159 @@
-#include <stdbool.h>
 #include <stdint.h>
-#include <ctype.h>
 #include <string.h>
+#include <ctype.h>
 
-#include <sys/types.h>
+#include <gstd/dynarr.h>
+#include <gstd/dynarr_malloc.h>
+#include <gstd/utils.h>
 
 #include "parse.h"
 #include "eblang.h"
 
-static int parse_command(struct eblang_parse__command* command, const char* str);
-
-bool eblang_parse__parse(struct eblang_parse__command** out, size_t* out_size, const char* str)
+void eblang_parse__init_default_parser(struct eblang_parse__parser* parser)
 {
-	struct eblang_parse__command cmd;
-	int shift, i;
-	const char* new_str = str;
+	parser->ignore_chars = "\t\n\r ";
+	
+	gstd__dynarr_malloc_create(&parser->keywords, eblang__memmanager,
+			sizeof(struct eblang_parse__kw_def));
+	gstd__dynarr_malloc_create(&parser->args, eblang__memmanager, sizeof(struct eblang_parse__arg_def));
 
-	*out_size = 0;
-	*out      = NULL;
+#	define add_kw(c) \
+		gstd__dynarr_push_end(&parser->keywords, &(struct eblang_parse__kw_def) { .sym = c })
 
-	for (shift = parse_command(&cmd, new_str), i = 0, new_str = str; shift > 0; new_str += shift,
-			shift = parse_command(&cmd, new_str), i++) {
+	add_kw(EBLANGKW__ADD);
+	add_kw(EBLANGKW__CALL);
+	add_kw(EBLANGKW__ALLOC);
+	add_kw(EBLANGKW__DIV);
+	add_kw(EBLANGKW__DEALLOC);
+	add_kw(EBLANGKW__EXIT);
+	add_kw(EBLANGKW__GET_ADDR);
+	add_kw(EBLANGKW__JMP);
+	add_kw(EBLANGKW__JMPIF);
+	add_kw(EBLANGKW__LABEL);
+	add_kw(EBLANGKW__MUL);
+	add_kw(EBLANGKW__SET);
+	add_kw(EBLANGKW__SUB);
+	add_kw(EBLANGKW__VAR_FROM_ADDR);
+
+#	undef add_kw
+
+#	define add_arg(c, fn) \
+		gstd__dynarr_push_end(&parser->args, \
+				&(struct eblang_parse__arg_def) { .sym = c, .parser = fn })
+
+	add_arg(EBLANGARG__AND    , NULL);
+	add_arg(EBLANGARG__OR     , NULL);
+	add_arg(EBLANGARG__XOR    , NULL);
+	add_arg(EBLANGARG__EQUALS , NULL);
+	add_arg(EBLANGARG__EXPORT , NULL);
+	add_arg(EBLANGARG__LEFT   , NULL);
+	add_arg(EBLANGARG__RIGHT  , NULL);
+	add_arg(EBLANGARG__START  , NULL);
+
+	add_arg(EBLANGARG__GENERAL_CHAR, eblang_parse__parse_char);
+
+	add_arg(EBLANGARG__GENERAL_NUM , eblang_parse__parse_num);
+	add_arg(EBLANGARG__OFFSET      , eblang_parse__parse_num);
+	add_arg(EBLANGARG__VARIABLE    , eblang_parse__parse_num);
+	add_arg(EBLANGARG__INSTRUCTION , eblang_parse__parse_num);
+
+	add_arg(EBLANGARG__STR, eblang_parse__parse_str);
+
+#	undef add_arg
+}
+
+void eblang_parse__free_parser(struct eblang_parse__parser* parser);
+
+static bool is_ignore_char(const struct eblang_parse__parser* parser, char c);
+static int parse_kw(struct eblang_parse__parser* parser, struct eblang_parse__kw* kw, const char* str);
+
+bool eblang_parse__parse(struct eblang_parse__parser* parser,
+		struct eblang_parse__tok_list* out, const char* str)
+{
+	gstd__dynarr_malloc_create(&out->toks, eblang__memmanager, sizeof(struct eblang_parse__kw));
+
+	for (const char* c = str; c - str < strlen(str);) {
+		if (is_ignore_char(parser, *c)) {
+			c++;
+			continue;
+		}
+
+		struct eblang_parse__kw kw = {0};
+		int shift                  = parse_kw(parser, &kw, c);
+
 		if (shift == -1)
 			return false;
 
-		(*out_size)++;
-		struct eblang_parse__command* new_out =
-			eblang__memmanager->allocator(sizeof(struct eblang_parse__command) * (*out_size));
+		c += shift;
 
-		if (*out != NULL) {
-			memcpy(new_out, (*out), sizeof(struct eblang_parse__command) * ((*out_size) - 1));
-			eblang__memmanager->deallocator(*out);
-		}
-
-		*out = new_out;
-
-		(*out)[i] = cmd;
+		gstd__dynarr_push_end(&out->toks, &kw);
 	}
 
 	return true;
 }
 
-void eblang__free_parsed(struct eblang_parse__command* commands, size_t size)
+void eblang_parse__free_tok_list(struct eblang_parse__tok_list* list)
 {
-	for (int i = 0; i < size; i++) {
-		struct eblang_parse__command* cmd = &commands[i];
-		
-		for (int j = 0; j < cmd->args_count; j++) {
-			struct eblang_parse__arg* arg = &cmd->args[j];
+	for (int i = 0; i < gstd__dynarr_len(&list->toks); i++) {
+		struct eblang_parse__kw* kw = gstd__dynarr_get(&list->toks, i);
+
+		for (int j = 0; j < gstd__dynarr_len(&kw->args); j++) {
+			struct eblang_parse__arg* arg = gstd__dynarr_get(&kw->args, j);
 
 			if (arg->data != NULL)
 				eblang__memmanager->deallocator(arg->data);
 		}
 
-		eblang__memmanager->deallocator(cmd->args);
+		gstd__dynarr_free(&kw->args);
 	}
 
-	eblang__memmanager->deallocator(commands);
+	gstd__dynarr_free(&list->toks);
 }
 
-static bool is_command(char c);
-static int parse_arg(struct eblang_parse__arg* arg, const char* str);
-
-static int parse_command(struct eblang_parse__command* command, const char* str)
+int eblang_parse__parse_char(void** data, const char* str, struct eblang_parse__parser* parser)
 {
-	if (*str == '\0')
-		return 0;
+	*data            = eblang__memmanager->allocator(sizeof(char));
+	*((char*) *data) = *str;
 
-	const char* c = str;
-	if (!is_command(*c))
-		return -1;
-
-	command->type       = *c;
-	command->args_count = 0;
-	command->args       = NULL;
-
-	c++;
-
-	int shift, i;
-	struct eblang_parse__arg arg;
-
-	for (shift = parse_arg(&arg, c), i = 0; shift > 0 && *c != '\0'; i++,
-			c += shift, shift = parse_arg(&arg, c)) {
-		if (shift == -1)
-			return -1;
-
-		command->args_count++;
-		struct eblang_parse__arg* new_args =
-			eblang__memmanager->allocator(sizeof(struct eblang_parse__arg) * command->args_count);
-
-		if (command->args != NULL) {
-			memcpy(new_args, command->args,
-					sizeof(struct eblang_parse__arg) * (command->args_count - 1));
-			eblang__memmanager->deallocator(command->args);
-		}
-
-		command->args = new_args;
-
-		command->args[i] = arg;
-	}
-
-	return c - str;
+	return 1;
 }
 
-static bool is_command(char c)
-{
-	return c == EBLANGKW__ADD ||
-		c == EBLANGKW__ALLOC ||
-		c == EBLANGKW__GET_ADDR ||
-		c == EBLANGKW__VAR_FROM_ADDR ||
-		c == EBLANGKW__JMP ||
-		c == EBLANGKW__JMPIF ||
-		c == EBLANGKW__SET ||
-		c == EBLANGKW__SUB ||
-		c == EBLANGKW__DEALLOC ||
-		c == EBLANGKW__LABEL ||
-		c == EBLANGKW__CALL ||
-		c == EBLANGKW__EXIT ||
-		c == EBLANGKW__MUL ||
-		c == EBLANGKW__DIV;
-}
-
-static int parse_arg_num(void** data, const char* str);
-static int parse_arg_str(void** data, const char* str);
-
-static int parse_arg(struct eblang_parse__arg* arg, const char* str)
-{
-	switch (*str) {
-	case '\0':
-		return 0;
-	
-	case EBLANGARG__AND:
-	case EBLANGARG__EQUALS:
-	case EBLANGARG__LEFT:
-	case EBLANGARG__RIGHT:
-	case EBLANGARG__OR:
-	case EBLANGARG__XOR:
-	case EBLANGARG__START:
-	case EBLANGARG__EXPORT:
-		arg->type = *str;
-		arg->data = NULL;
-
-		return 1;
-
-	case EBLANGARG__GENERAL_NUM:
-	case EBLANGARG__VARIABLE:
-	case EBLANGARG__OFFSET:
-	case EBLANGARG__INSTRUCTION:
-		arg->type = *str;
-		return parse_arg_num(&arg->data, str);
-
-	case EBLANGARG__GENERAL_CHAR:
-		arg->type = *str;
-		arg->data = eblang__memmanager->allocator(sizeof(char));
-		*((char*) arg->data) = *str;
-
-		return 2;
-
-	case EBLANGARG__STR:
-		arg->type = *str;
-		return parse_arg_str(&arg->data, str);
-
-	default:
-		return -1;
-	}
-}
-
-static bool is_num_directive(char c);
-
-static int parse_arg_num(void** data, const char* str)
+int eblang_parse__parse_num(void** data, const char* str, struct eblang_parse__parser* parser)
 {
 	*data = eblang__memmanager->allocator(sizeof(uint8_t));
-	*((uint8_t*) *data) = 0;
 
-	const char* c = str + 1;
-	while (true) {
-		if (!(isdigit(*c) && *c != '\0'))
-			break;
+	const char* c;
+	for (c = str; c - str < strlen(str);) {
+		if (!isdigit(*c))
+			return -1;
 
-		uint8_t num = *c - '0';
-
+		uint8_t val = *c - '0';
 		c++;
-		if (!(is_num_directive(*c) && *c != '\0')) {
-			*((uint8_t*) *data) += num;
-			break;
-		}
 
 		switch (*c) {
-		case EBLANGNUM__100_900:
-			*((uint8_t*) *data) += num * 100;
-			break;
-
-		case EBLANGNUM__20_90:
-			if (*((uint8_t*) *data) < 2)
-				return -1;
-
-			*((uint8_t*) *data) += num * 10;
-			break;
-
 		case EBLANGNUM__10_13:
-			if (*((uint8_t*) *data) > 3)
+			if (val > 3)
 				return -1;
 
-			*((uint8_t*) *data) += 10;
+			val += 10;
 			break;
 
 		case EBLANGNUM__14_19:
-			if (*((uint8_t*) *data) < 4)
+			if (val < 4)
 				return -1;
 
-			*((uint8_t*) *data) += 10;
+			val += 10;
+			break;
+
+		case EBLANGNUM__20_90:
+			if (val < 2)
+				return -1;
+
+			val *= 10;
+			break;
+
+		case EBLANGNUM__100_900:
+			val *= 100;
 			break;
 		}
 		c++;
@@ -218,27 +162,107 @@ static int parse_arg_num(void** data, const char* str)
 	return c - str;
 }
 
-static int parse_arg_str(void** data, const char* str)
+int eblang_parse__parse_str(void** data, const char* str, struct eblang_parse__parser* parser)
 {
-	const char* c = str;
-	c++;
+	const char* c;
+	size_t str_len;
 
-	for (; *c != '\0' && *c != EBLANGARG__STR; c++);
+	for (c = str, str_len = 0; *c != EBLANGARG__STR && *c != '\0'; c++)
+		str_len++;
 
-	size_t len = c - str;
-	*data = eblang__memmanager->allocator(len);
+	*data = eblang__memmanager->allocator(str_len);
 
-	for (c = str; *c != '\0' && *c != EBLANGARG__STR; c++) {
-		((char*) (*data))[c - str] = *c;
-	}
+	for (c = str; *c != EBLANGARG__STR && *c != '\0'; c++)
+		((char*) *data)[c - str] = *c;
 
-	return len + 1;
+	return c - str;
 }
 
-static bool is_num_directive(char c)
+static bool is_ignore_char(const struct eblang_parse__parser* parser, char c)
 {
-	return c == EBLANGNUM__10_13 ||
-		c == EBLANGNUM__14_19 ||
-		c == EBLANGNUM__20_90 ||
-		c == EBLANGNUM__100_900;
+	return strchr(parser->ignore_chars, c);
+}
+
+static const struct eblang_parse__kw_def* get_kw_def(const struct eblang_parse__parser* parser, char c);
+static int parse_arg(struct eblang_parse__parser* parser, struct eblang_parse__arg* arg, const char* str);
+
+static int parse_kw(struct eblang_parse__parser* parser, struct eblang_parse__kw* kw, const char* str)
+{
+	const char* c = str;
+
+	const struct eblang_parse__kw_def* def = get_kw_def(parser, *c);
+	if (def == NULL)
+		return -1;
+
+	kw->sym = def->sym;
+
+	gstd__dynarr_malloc_create(&kw->args, eblang__memmanager, sizeof(struct eblang_parse__arg_def));
+
+	for (c++; c - str < strlen(c);) {
+		if (is_ignore_char(parser, *c)) {
+			c++;
+			continue;
+		}
+
+		struct eblang_parse__arg arg = {0};
+		int shift                    = parse_arg(parser, &arg, c);
+
+		if (shift == -1)
+			return -1;
+
+		c += shift;
+
+		gstd__dynarr_push_end(&kw->args, &arg);
+	}
+
+	return c - str;
+}
+
+static const struct eblang_parse__kw_def* get_kw_def(const struct eblang_parse__parser* parser, char c)
+{
+	for (int i = 0; i < gstd__dynarr_len(&parser->keywords); i++) {
+		const struct eblang_parse__kw_def* def = gstd__dynarr_get(&parser->keywords, i);
+
+		if (def->sym == c)
+			return def;
+	}
+
+	return NULL;
+}
+
+static const struct eblang_parse__arg_def* get_arg_def(const struct eblang_parse__parser* parser, char c);
+
+static int parse_arg(struct eblang_parse__parser* parser, struct eblang_parse__arg* arg, const char* str)
+{
+	const char* c = str;
+
+	const struct eblang_parse__arg_def* def = get_arg_def(parser, *c);
+	if (def == NULL)
+		return -1;
+
+	arg->sym  = def->sym;
+	arg->data = NULL;
+
+	if (def->parser == NULL)
+		return 1;
+
+	c++;
+
+	int shift = def->parser(&arg->data, c, parser);
+	if (shift == -1)
+		return -1;
+
+	return shift + 1;
+}
+
+static const struct eblang_parse__arg_def* get_arg_def(const struct eblang_parse__parser* parser, char c)
+{
+	for (int i = 0; i < gstd__dynarr_len(&parser->args); i++) {
+		const struct eblang_parse__arg_def* def = gstd__dynarr_get(&parser->args, i);
+
+		if (def->sym == c)
+			return def;
+	}
+
+	return NULL;
 }

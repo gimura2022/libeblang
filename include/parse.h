@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#include <gstd/dynarr.h>
+
 enum {
 	EBLANGKW__ALLOC         = '}',
 	EBLANGKW__VAR_FROM_ADDR = '{',
@@ -52,19 +54,47 @@ enum {
 	EBLANGNUM__100_900 = '&',
 };
 
+struct eblang_parse__kw_def {
+	char sym;
+};
+
+struct eblang_parse__parser {
+	struct gstd__dynarr keywords;
+	struct gstd__dynarr args;
+
+	const char* ignore_chars;
+};
+
+typedef int (*eblang_parse__arg_parser_f)(void**, const char*, struct eblang_parse__parser*);
+
+struct eblang_parse__arg_def {
+	char sym;
+	eblang_parse__arg_parser_f parser;
+};
+
+struct eblang_parse__kw {
+	char sym;
+	struct gstd__dynarr args;
+};
+
 struct eblang_parse__arg {
-	int type;
+	char sym;
 	void* data;
 };
 
-struct eblang_parse__command {
-	int type;
-
-	struct eblang_parse__arg* args;
-	size_t args_count;
+struct eblang_parse__tok_list {
+	struct gstd__dynarr toks;
 };
 
-bool eblang_parse__parse(struct eblang_parse__command** out, size_t* out_size, const char* str);
-void eblang_parse__free(struct eblang_parse__command* commands, size_t size);
+void eblang_parse__init_default_parser(struct eblang_parse__parser* parser);
+void eblang_parse__free_parser(struct eblang_parse__parser* parser);
+
+bool eblang_parse__parse(struct eblang_parse__parser* parser,
+		struct eblang_parse__tok_list* out, const char* str);
+void eblang_parse__free_tok_list(struct eblang_parse__tok_list* list);
+
+int eblang_parse__parse_char(void** data, const char* str, struct eblang_parse__parser* parser);
+int eblang_parse__parse_num(void** data, const char* str, struct eblang_parse__parser* parser);
+int eblang_parse__parse_str(void** data, const char* str, struct eblang_parse__parser* parser);
 
 #endif
