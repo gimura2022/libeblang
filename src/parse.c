@@ -62,7 +62,11 @@ void eblang_parse__init_default_parser(struct eblang_parse__parser* parser)
 #	undef add_arg
 }
 
-void eblang_parse__free_parser(struct eblang_parse__parser* parser);
+void eblang_parse__free_parser(struct eblang_parse__parser* parser)
+{
+	gstd__dynarr_free(&parser->keywords);
+	gstd__dynarr_free(&parser->args);
+}
 
 static bool is_ignore_char(const struct eblang_parse__parser* parser, char c);
 static int parse_kw(struct eblang_parse__parser* parser, struct eblang_parse__kw* kw, const char* str);
