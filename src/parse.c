@@ -165,6 +165,7 @@ int eblang_parse__parse_num(void** data, const char* str, struct eblang_parse__p
 		}
 		c++;
 
+		continue;
 break_cycle:
 		break;
 	}
