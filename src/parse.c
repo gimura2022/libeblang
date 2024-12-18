@@ -127,7 +127,7 @@ int eblang_parse__parse_num(void** data, const char* str, struct eblang_parse__p
 	*data = eblang__memmanager->allocator(sizeof(uint8_t));
 
 	const char* c;
-	for (c = str; c - str < strlen(str);) {
+	for (c = str; *c != '\0' && c - str < strlen(str);) {
 		if (!isdigit(*c))
 			return -1;
 
@@ -159,8 +159,14 @@ int eblang_parse__parse_num(void** data, const char* str, struct eblang_parse__p
 		case EBLANGNUM__100_900:
 			val *= 100;
 			break;
+
+		default:
+			goto break_cycle;
 		}
 		c++;
+
+break_cycle:
+		break;
 	}
 
 	return c - str;
@@ -202,7 +208,7 @@ static int parse_kw(struct eblang_parse__parser* parser, struct eblang_parse__kw
 
 	gstd__dynarr_malloc_create(&kw->args, eblang__memmanager, sizeof(struct eblang_parse__arg_def));
 
-	for (c++; c - str < strlen(c);) {
+	for (c++; *c != '\0' && c - str < strlen(c);) {
 		if (is_ignore_char(parser, *c)) {
 			c++;
 			continue;

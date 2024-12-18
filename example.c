@@ -1,8 +1,10 @@
+#include "include/parse.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <eblang/eblang.h>
 #include <eblang/parse.h>
+
 #include <gstd/dunarr.h>
 #include <gstd/allocators.h>
 
@@ -15,21 +17,15 @@ int main(int argc, char* argv[])
 
 	eblang__init(&memmanager);
 
-	struct eblang__command* out;
-	size_t out_size;
-	eblang__parse(&out, &out_size, "},5$f0o0\"fuck\"$f0o4,0^f0o0");
+	struct eblang_parse__parser parser = {0};
+	eblang_parse__init_default_parser(&parser);
 
-	for (int i = 0; i < out_size; i++) {
-		struct eblang__command* cmd = &out[i];
-		printf("found command %c with args:\n", cmd->type);
+	struct eblang_parse__tok_list out_toks = {0};
+	eblang_parse__parse(&parser, &out_toks, "},5");
 
-		for (int j = 0; j < cmd->args_count; j++) {
-			struct eblang__arg* arg = &cmd->args[j];
-			printf("	%i: type: %c\n", j, arg->type);
-		}
-	}
+	eblang_parse__free_tok_list(&out_toks);
 
-	eblang__free_parsed(out, out_size);
+	eblang_parse__free_parser(&parser);
 
 	return 0;
 }
