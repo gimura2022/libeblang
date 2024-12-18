@@ -220,6 +220,9 @@ static int parse_kw(struct eblang_parse__parser* parser, struct eblang_parse__kw
 		if (shift == -1)
 			return -1;
 
+		if (shift == 0)
+			break;
+
 		c += shift;
 
 		gstd__dynarr_push_end(&kw->args, &arg);
@@ -248,7 +251,7 @@ static int parse_arg(struct eblang_parse__parser* parser, struct eblang_parse__a
 
 	const struct eblang_parse__arg_def* def = get_arg_def(parser, *c);
 	if (def == NULL)
-		return -1;
+		return 0;
 
 	arg->sym  = def->sym;
 	arg->data = NULL;
